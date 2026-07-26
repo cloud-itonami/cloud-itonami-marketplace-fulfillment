@@ -1,0 +1,19 @@
+{:itonami.blueprint/id "cloud-itonami-marketplace-fulfillment"
+ :itonami.blueprint/name "Federated Marketplace Warehouse Fulfillment"
+ :itonami.blueprint/domain :marketplace/warehouse-fulfillment
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:small-seller-access :worker-safety :transparency]
+ :itonami.blueprint/governor :fulfillment-governor
+ :itonami.blueprint/robotics true
+ :itonami.blueprint/required-technologies [:robotics :identity :forms :audit-ledger :logistics]
+ :itonami.blueprint/optional-technologies []
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented
+ :itonami.blueprint/keying :function
+ :itonami.blueprint/adr "2607264000-marketplace-federated-commerce-layer"
+ ;; :robotics true here is WIRED, not merely declared: this actor requires
+ ;; kotoba.robotics and gates every action against the assigned robot's
+ ;; registered certification. It is the first commerce-side actor in the
+ ;; fleet to do so — the 23 repos that previously required the library are
+ ;; all heavy industry.
+ :itonami.blueprint/robotics-wired true}
