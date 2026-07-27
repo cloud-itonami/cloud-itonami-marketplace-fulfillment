@@ -11,7 +11,12 @@
         ;; sub-order. That library is policy, not control -- and this actor is
         ;; the first on the commerce side of the fleet to actually apply it.
         io.github.kotoba-lang/marketplace
-        {:local/root "../../kotoba-lang/marketplace"}}
+        {:local/root "../../kotoba-lang/marketplace"}
+        ;; HOST half only (`fulfillops.edge.worker`): q / pull / datoms / transact
+        ;; against kotobase.net with a per-request CACAO. The actor core
+        ;; stays portable .cljc with no network I/O.
+        io.github.kotoba-lang/kotobase-client
+        {:local/root "../../kotoba-lang/kotobase-client"}}
  :aliases
  {:dev {:override-deps
         {io.github.com-junkawasaki/langchain-clj

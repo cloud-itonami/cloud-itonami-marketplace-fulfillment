@@ -35,7 +35,8 @@
 
   The ledger stays append-only."
   (:require [marketplace.fulfillment :as ff]
-            [marketplace.order :as order]))
+            [marketplace.order :as order]
+            [marketplace.persist :as persist]))
 
 (defprotocol Store
   (order-record [s order-id] "Multi-seller order from -marketplace-order, or nil.")
@@ -51,6 +52,7 @@
   (fulfillment-log [s])
   (commit-record! [s record])
   (append-ledger! [s fact])
+  (durable? [s] "False for the test-only memory backend.")
   (with-orders [s orders]))
 
 ;; ----------------------------- demo data -----------------------------
@@ -104,6 +106,7 @@
   (dispatched? [_ aid] (contains? (:dispatched @a) aid))
   (ledger [_] (:ledger @a))
   (fulfillment-log [_] (:fulfillment-log @a))
+  (durable? [_] false)
   (commit-record! [_ record]
     (swap! a update :fulfillment-log conj record)
     (let [{:keys [op value]} record]
@@ -175,3 +178,85 @@
   just the newest pass."
   [s task-id new-picks]
   (into (vec (picks-for s task-id)) (or new-picks [])))
+
+;; ----------------------------- durable store -----------------------------
+
+(defrecord KotobaseStore [st seed]
+  Store
+  ;; Orders are READ here and written by -marketplace-order into the
+  ;; same ref. A warehouse does not get to author the order it is
+  ;; picking against.
+  (order-record [_ id] (persist/get-doc (persist/ctx st :order :order/id) id))
+  (all-order-records [_] (persist/all-docs (persist/ctx st :order :order/id)))
+  (task-record [_ id] (persist/get-doc (persist/ctx st :task :task/id) id))
+  (all-task-records [_] (persist/all-docs (persist/ctx st :task :task/id)))
+  (tasks-for [this oid sel]
+    (->> (all-task-records this)
+         (filter #(and (= oid (:task/order %)) (= sel (:task/seller %))))
+         (sort-by :task/id)
+         vec))
+  (picks-for [_ tid]
+    (:picks/items (persist/get-doc (persist/ctx st :picks :task/id) tid) []))
+  (robot-record [_ id] (persist/get-doc (persist/ctx st :robot :robot-id) id))
+  (all-robots [_] (persist/all-docs (persist/ctx st :robot :robot-id)))
+  (dispatched? [_ aid]
+    (boolean (:dispatched (persist/get-doc (persist/ctx st :dispatch :id) (str aid)))))
+  (durable? [_] (not (:persist/memory? st)))
+  (ledger [_] (persist/read-events (persist/stream-ctx st :ledger)))
+  (fulfillment-log [_] (persist/read-events (persist/stream-ctx st :fulfillment-log)))
+  (commit-record! [this record]
+    (persist/append-event! (persist/stream-ctx st :fulfillment-log) seed record)
+    (let [{:keys [op value]} record
+          tctx (persist/ctx st :task :task/id)
+          advance! (fn [tid to]
+                     (when-let [t (task-record this tid)]
+                       (when-let [t' (ff/advance-task t to)]
+                         (persist/put-doc! tctx t'))))]
+      (case op
+        :plan-tasks
+        (doseq [t (:tasks value)] (persist/put-doc! tctx t))
+
+        ;; Picks are APPENDED, never replaced: a second pick pass against
+        ;; the same task adds to what was already taken off the shelf,
+        ;; and overwriting would hide an over-pick that only the total
+        ;; reveals.
+        :record-pick
+        (persist/put-doc! (persist/ctx st :picks :task/id)
+                          {:task/id (:task-id value)
+                           :picks/items (into (vec (picks-for this (:task-id value)))
+                                              (:picks value))})
+
+        :complete-task (advance! (:task-id value) :done)
+        :halt-task     (advance! (:task-id value) :halted)
+
+        :dispatch-actions
+        (do (doseq [a (:actions value)]
+              (persist/put-doc! (persist/ctx st :dispatch :id)
+                                {:id (str (:action/id a)) :dispatched true}))
+            (advance! (:task-id value) :in-progress))
+
+        nil))
+    record)
+  (append-ledger! [_ fact]
+    (persist/append-event! (persist/stream-ctx st :ledger) seed fact))
+  (with-orders [this orders]
+    (doseq [o (vals orders)] (persist/put-doc! (persist/ctx st :order :order/id) o))
+    this))
+
+(defn kotobase-store
+  "A durable store over a HOST-INJECTED database API. Throws when the
+  host has not wired one, per
+  `:policy/fail-closed-without-host-injection`."
+  [{:keys [db-api seq-fn]}]
+  (->KotobaseStore (persist/store {:db-api db-api :actor "fulfillops"})
+                   (or seq-fn (let [n (atom 0)] #(swap! n inc)))))
+
+(defn put-robot!
+  "Register a robot and what it is CERTIFIED for.
+
+  Operator input. This actor reads the certification to gate an action;
+  it never grants one, because a machine that could certify itself for a
+  handover is not gated at all."
+  [s robot]
+  (persist/put-doc! (persist/ctx (:st s) :robot :robot-id) robot)
+  robot)
