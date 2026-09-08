@@ -53,7 +53,7 @@
     - A short pick. Not an error: a stock discrepancy is an ordinary
       warehouse state. But shipping a parcel with fewer units than the
       buyer paid for, unremarked, is not, so it goes to a human."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [fulfillops.store :as store]
             [marketplace.fulfillment :as ff]))
 
@@ -174,7 +174,7 @@
       :detail (str ":effect は :propose のみ許可されるが " (pr-str (:effect proposal)) " が提案された")}]))
 
 (defn- text-blob [proposal]
-  (str/lower-case (pr-str (select-keys proposal [:op :summary :rationale :cites :value]))))
+  (str/lower (pr-str (select-keys proposal [:op :summary :rationale :cites :value]))))
 
 (defn- scope-exclusion-violations [proposal]
   (let [op (:op proposal)
