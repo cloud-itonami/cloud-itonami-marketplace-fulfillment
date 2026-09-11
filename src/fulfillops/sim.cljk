@@ -1,7 +1,7 @@
 (ns fulfillops.sim
   "Offline demo: plan warehouse work, watch a robot's certification gate
   its own actions, and watch a handover stop for a human.
-  `clojure -M:dev:run`."
+  `kbb -M:dev:run`."
   (:require [fulfillops.operation :as operation]
             [fulfillops.store :as store]
             [langgraph.graph :as g]))

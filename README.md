@@ -91,9 +91,9 @@ resuming one a robot was stopped mid-way through — the physical state
 after a stop is unknown.
 
 ```bash
-clojure -M:dev:run   # certification denial, clean pick, over-pick, short pick, human-gated handover, e-stop
-clojure -M:test      # 22 tests, 64 assertions
-clojure -M:lint
+kbb -M:dev:run   # certification denial, clean pick, over-pick, short pick, human-gated handover, e-stop
+kbb -M:test      # 22 tests, 64 assertions
+kbb -M:lint
 ```
 
 ## Rollout phases
