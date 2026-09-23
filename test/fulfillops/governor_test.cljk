@@ -1,5 +1,5 @@
 (ns fulfillops.governor-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [fulfillops.advisor :as advisor]
             [fulfillops.governor :as governor]
             [fulfillops.store :as store]
