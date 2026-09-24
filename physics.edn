@@ -1,0 +1,44 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README: the warehouse actor gates AMRs (amr-01 / amr-07 / amr-99) doing
+;; :pick (:medium) and :handover (:high -- a robot moving a parcel into space
+;; a human courier occupies). Its physical work: an AMR bringing a shelf pod
+;; to the pick station, an arm picking an item into the order tote, and the
+;; AMR slowing into the courier handover zone.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-marketplace-fulfillment"
+ :cases
+ [{:id :pod-to-pick-station
+   :kind :transport
+   :procedure "AMR lifts a loaded shelf pod and brings it 40 m to the pick station"
+   :params {:mass-kg 150.0 :distance-m 40.0 :v-max-mps 1.5 :a-max-mps2 0.8
+            :brake-decel-mps2 1.0 :drive-force-n 400.0 :crr 0.01
+            :cog-height-m 0.20 :payload-cog-height-m 1.00
+            :support-half-length-m 0.35 :max-time-s 600.0}
+   :sweep {:param :payload-kg :values [150.0 300.0 600.0 900.0 1200.0]}
+   :quantity :cycle-time-s
+   :limit {:max 30.0 :basis "estimate: one pod delivery per 30 s to keep a goods-to-person station at its pick rate"}
+   :boundary {:lo 10.0 :hi 1500.0}}
+  {:id :item-pick-to-tote
+   :kind :manipulator
+   :procedure "pick arm lifts an item from the pod bin and places it in the order tote"
+   :params {:l1-m 0.45 :l2-m 0.40 :m1-kg 5.0 :m2-kg 3.5
+            :from [0.60 0.40] :to [0.35 -0.10] :duration-s 1.5 :steps 400}
+   :sweep {:param :payload-kg :values [0.5 1.0 2.0 3.5 5.0]}
+   :quantity :peak-tau1-nm
+   :limit {:max 50.0 :basis "estimate: continuous shoulder torque of a 5 kg-payload collaborative pick arm"}
+   :boundary {:lo 0.1 :hi 20.0}}
+  {:id :courier-handover-approach
+   :kind :transport
+   :procedure "AMR carries a 15 kg parcel 8 m into the handover zone a human courier occupies and stops"
+   :params {:mass-kg 150.0 :payload-kg 15.0 :distance-m 8.0 :a-max-mps2 0.5
+            :brake-decel-mps2 1.0 :drive-force-n 400.0 :crr 0.01
+            :cog-height-m 0.25 :support-half-length-m 0.35 :max-time-s 300.0}
+   :sweep {:param :v-max-mps :values [0.3 0.5 0.8 1.0 1.2 1.5]}
+   :quantity :stopping-distance-m
+   :limit {:max 0.3 :basis "estimate: stop within 0.3 m of the courier-detection boundary at the approach speed"}
+   :boundary {:lo 0.1 :hi 2.0}}]}
